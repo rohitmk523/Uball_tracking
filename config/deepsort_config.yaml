@@ -1,0 +1,103 @@
+# DeepSORT Configuration for Basketball Player Tracking
+# Optimized for basketball-specific tracking scenarios
+
+tracker:
+  # Track lifecycle parameters - VERY AGGRESSIVE FOR ID STABILITY
+  max_age: 90                    # Keep tracks alive much longer
+  min_hits: 1                    # Immediate ID assignment
+  max_iou_distance: 0.9          # Very lenient spatial matching
+  max_cosine_distance: 0.8       # Very lenient appearance matching
+
+association:
+  # Data association algorithm
+  algorithm: "hungarian"         # "hungarian" or "greedy"
+  
+  # Weight balance between motion and appearance - OPTIMIZED FOR STABILITY
+  appearance_weight: 0.6         # Weight for appearance features (reduced for more motion reliance)
+  motion_weight: 0.4            # Weight for motion prediction (increased)
+  
+  # Association thresholds - MORE LENIENT
+  high_confidence_threshold: 0.7 # High confidence detection threshold (reduced)
+  low_confidence_threshold: 0.2  # Low confidence detection threshold (reduced)
+
+feature_extractor:
+  # Feature extraction model
+  model_type: "simple_cnn"       # "simple_cnn" or "simple"
+  feature_dim: 256               # Feature vector dimension
+  input_size: [128, 64]          # Input image size [height, width]
+  
+  # CNN model parameters (if using CNN)
+  use_pretrained: false          # Use pretrained weights
+  dropout_rate: 0.5              # Dropout rate for training
+  
+  # Simple feature parameters (if using simple extractor)
+  color_bins: 32                 # Color histogram bins per channel
+  texture_features: true         # Enable texture features
+  geometric_features: true       # Enable geometric features
+
+kalman_filter:
+  # Motion model parameters
+  process_noise_position: 4.0    # Position process noise
+  process_noise_velocity: 10.0   # Velocity process noise
+  process_noise_size: 1.0        # Size process noise
+  process_noise_size_vel: 2.0    # Size velocity process noise
+  
+  # Measurement noise
+  measurement_noise_position: 10.0  # Position measurement noise
+  measurement_noise_size: 5.0       # Size measurement noise
+  
+  # Motion constraints
+  max_velocity: 200.0            # Maximum velocity (pixels/frame)
+  max_size_change: 0.5           # Maximum size change ratio per frame
+
+basketball:
+  # Basketball-specific parameters
+  team_consistency: true         # Enforce team consistency
+  team_switching_penalty: 2.0    # Penalty for team switches
+  occlusion_handling: true       # Enhanced occlusion handling
+  court_boundaries: true         # Use court boundary constraints
+  
+  # Player constraints
+  min_player_size: [20, 40]      # Minimum player size [width, height]
+  max_player_size: [200, 400]    # Maximum player size [width, height]
+  aspect_ratio_range: [0.3, 1.2] # Valid aspect ratio range
+  
+  # Tracking optimization
+  max_players: 15                # Maximum players on court
+  merge_threshold: 0.8           # Threshold for merging similar tracks
+  split_threshold: 0.3           # Threshold for splitting tracks
+
+performance:
+  # Performance optimization
+  batch_processing: true         # Enable batch processing for features
+  feature_caching: true          # Cache computed features
+  parallel_processing: false     # Enable parallel processing (experimental)
+  
+  # Memory management
+  max_track_history: 30          # Maximum track history length
+  cleanup_interval: 50           # Frames between cleanup operations
+
+visualization:
+  # Default visualization settings
+  show_confirmed_only: false     # Show only confirmed tracks
+  show_track_history: false      # Show track movement history
+  track_history_length: 10       # Length of track history trail
+  
+  # Color scheme
+  track_colors: "auto"           # "auto", "team_based", or "fixed"
+  color_palette: 
+    - [255, 0, 0]     # Red
+    - [0, 255, 0]     # Green  
+    - [0, 0, 255]     # Blue
+    - [255, 255, 0]   # Yellow
+    - [255, 0, 255]   # Magenta
+    - [0, 255, 255]   # Cyan
+    - [128, 0, 128]   # Purple
+    - [255, 165, 0]   # Orange
+
+logging:
+  # Logging configuration
+  level: "INFO"                  # "DEBUG", "INFO", "WARNING", "ERROR"
+  track_events: true             # Log track creation/deletion events
+  performance_metrics: true      # Log performance metrics
+  save_trajectories: false       # Save track trajectories to file

@@ -1,0 +1,26 @@
+# Core ML libraries
+torch>=2.1.0
+torchvision>=0.16.0
+numpy>=1.24.0,<2.0.0
+
+# Computer vision
+opencv-python>=4.8.0
+pillow>=10.0.0
+
+# YOLO
+ultralytics>=8.0.0
+
+# Tracking dependencies
+filterpy>=1.4.5
+scipy>=1.11.0
+lap>=0.4.0
+easydict>=1.10
+
+# Visualization and utilities
+matplotlib>=3.7.0
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+jupyter>=1.0.0

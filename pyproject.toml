@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "basketball-player-tracking"
+version = "0.1.0"
+description = "A comprehensive computer vision pipeline for tracking basketball players using YOLO11 + SAM2 + DeepSORT"
+authors = ["Your Name <your.email@domain.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+torch = "^2.1.0"
+torchvision = "^0.16.0"
+ultralytics = "^8.0.0"
+opencv-python = "^4.8.0"
+numpy = "^1.24.0"
+pillow = "^10.0.0"
+matplotlib = "^3.7.0"
+filterpy = "^1.4.5"
+scipy = "^1.11.0"
+lap = "^0.4.0"
+easydict = "^1.10"
+pyyaml = "^6.0"
+tqdm = "^4.65.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+black = "^23.0.0"
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+jupyter = "^1.0.0"
+
+[tool.poetry.scripts]
+basketball-tracker = "scripts.basketball_tracker_app:main"
+setup-models = "scripts.download_models:main"
+run-demo = "scripts.demo:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

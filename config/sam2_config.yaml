@@ -1,0 +1,42 @@
+# SAM2 Configuration for Player Segmentation
+
+# Model Configuration
+model:
+  name: "sam2_hiera_t.yaml"
+  checkpoint: "sam2_hiera_tiny.pt"
+  device: "auto"  # auto, cpu, cuda, mps
+
+# Segmentation Parameters
+segmentation:
+  # Prompt settings
+  use_bbox_prompts: true
+  use_point_prompts: false
+  multimask_output: false
+  
+  # Quality settings
+  mask_threshold: 0.0
+  stability_score_threshold: 0.95
+  
+  # Post-processing
+  remove_small_regions: true
+  min_region_area: 500  # Remove regions smaller than this (pixels)
+
+# Basketball-specific settings
+basketball:
+  # Focus on player body regions
+  torso_focus: true
+  exclude_ground_shadows: true
+  
+  # Mask refinement
+  morphological_operations: true
+  kernel_size: 3
+  
+  # Temporal consistency (for video)
+  temporal_smoothing: false
+  smoothing_window: 3
+
+# Performance settings
+performance:
+  batch_processing: false
+  memory_efficient: true
+  precision: "float32"  # float32, float16

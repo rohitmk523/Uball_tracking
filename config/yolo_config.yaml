@@ -1,0 +1,34 @@
+# YOLO Configuration for Basketball Player Detection
+
+# Model Configuration
+model:
+  name: "yolo11n.pt"  # YOLOv11 Nano for fast inference
+  input_size: 640
+  device: "auto"  # auto, cpu, cuda, mps
+
+# Detection Parameters - ULTRA-LOW THRESHOLD FOR STABLE TRACKING
+detection:
+  confidence_threshold: 0.15     # Very low threshold to catch weak detections
+  nms_threshold: 0.3             # Lower NMS to keep more overlapping detections
+  max_detections: 30             # Even more detections
+  classes: [0]  # Only detect persons (class 0 in COCO)
+
+# Basketball-specific optimizations
+basketball:
+  # Elevated camera angle adjustments
+  perspective_correction: true
+  min_player_area: 1000  # Minimum bounding box area in pixels
+  max_player_area: 50000  # Maximum bounding box area in pixels
+  
+  # Aspect ratio constraints for player detection
+  min_aspect_ratio: 0.3  # width/height minimum
+  max_aspect_ratio: 1.0  # width/height maximum
+  
+  # Court region filtering (if available)
+  court_mask: null  # Path to court mask image
+  
+# Performance settings
+performance:
+  batch_size: 1
+  half_precision: false  # Use FP16 for faster inference
+  optimize_for_mobile: false
