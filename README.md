@@ -1,25 +1,27 @@
 # Basketball Player Tracking System
 
-A comprehensive computer vision pipeline for tracking basketball players using YOLO11 + SAM2 + DeepSORT, designed for elevated camera angles and multi-player scenarios.
+A comprehensive computer vision pipeline for tracking basketball players using **YOLO11 + SAM2 + ByteTrack**, designed for elevated camera angles and multi-player scenarios.
 
 ## 🏀 Overview
 
-This project implements a three-stage basketball player tracking system:
+This project implements a complete basketball player tracking system with three integrated components:
 
-1. **Detection**: YOLOv11 Nano for fast player detection
-2. **Segmentation**: SAM2 for pixel-accurate player boundaries  
-3. **Tracking**: DeepSORT for consistent player ID retention across frames
+1. **Detection**: YOLO11 (Nano/Small/Medium/Large) for robust player detection
+2. **Segmentation**: SAM2 (Tiny/Small/Base/Large) for pixel-perfect player boundaries  
+3. **Tracking**: Enhanced ByteTrack with mask features for stable ID retention
 
-Perfect for basketball analytics, game highlights, and player performance analysis.
+Perfect for basketball analytics, game highlights, player performance analysis, and sports research.
 
 ## 🚀 Features
 
-- **Real-time Processing**: 30+ FPS on modern GPUs
-- **Multi-player Support**: Track 10+ players simultaneously
-- **Team Classification**: Red vs Green jersey detection
-- **Cross-frame Consistency**: Maintain player IDs throughout video
-- **Cloud Ready**: Designed for scalable cloud deployment
-- **Basketball Optimized**: Handles occlusions, picks, and basketball-specific movements
+- **🎯 Robust Detection**: Multiple YOLO11 models (nano to extra-large) for different speed/accuracy needs
+- **🖼️ Pixel-Perfect Segmentation**: SAM2 integration for precise player boundaries
+- **🔄 Enhanced Tracking**: ByteTrack with mask features for superior ID retention
+- **⚡ Flexible Processing**: Real-time or offline processing with configurable optimization
+- **🎬 Video Processing**: Process entire videos or short segments for testing
+- **📊 Multiple Methods**: Switch between DeepSORT and ByteTrack tracking algorithms
+- **🎛️ Optimization Levels**: Fast/Balanced/Quality presets for different use cases
+- **🏀 Basketball Optimized**: Handles occlusions, fast movements, and multi-player scenarios
 
 ## 📁 Project Structure
 
@@ -99,30 +101,39 @@ git clone https://github.com/yourusername/basketball-player-tracking.git
 cd basketball-player-tracking
 ```
 
-### 2. Install Dependencies (using Poetry)
+### 2. Set Up Environment
 ```bash
-# Install Poetry if you haven't already
-curl -sSL https://install.python-poetry.org | python3 -
+# Create conda environment with Python 3.11
+conda create -n basketball_tracking python=3.11
+conda activate basketball_tracking
 
-# Install project dependencies
-poetry install
+# Install dependencies
+pip install -r requirements.txt
 
-# Activate the virtual environment
-poetry shell
+# Install additional libraries for enhanced features
+pip install supervision mediapipe
 ```
 
 ### 3. Download Models
 ```bash
-poetry run python scripts/download_models.py
-# or if you're in the poetry shell:
+# Download YOLO models
 python scripts/download_models.py
+
+# Download SAM2 models (choose size based on your needs)
+python scripts/download_sam2_models.py
+# Select: 1 (tiny - fastest), 2 (small - balanced), or 4 (large - best quality)
 ```
 
-### 4. Run Demo
+### 4. Quick Test
 ```bash
-poetry run python scripts/demo.py --video data/sample_videos/sample_game.mp4
-# or if you're in the poetry shell:
-python scripts/demo.py --video data/sample_videos/sample_game.mp4
+# Test Phase 1 (YOLO detection only)
+python scripts/test_yolo.py
+
+# Test Phase 2 (YOLO + SAM2)
+python scripts/test_yolo_sam2.py
+
+# Test Phase 3 (Full pipeline)
+python scripts/test_full_pipeline.py
 ```
 
 ## 🎯 Implementation Phases
@@ -180,43 +191,101 @@ This project is designed to be built incrementally:
 - `numpy >= 1.24.0`
 - `pillow >= 9.5.0`
 
-## 🎮 Usage Examples
+## 🎬 Video Processing Guide
 
-### Basic Video Processing
-```python
-from src.pipeline.basketball_tracker import BasketballTracker
+### 🚀 Quick Start - Process Short Segments
 
-# Initialize tracker
-tracker = BasketballTracker()
+Perfect for testing and experimentation:
 
-# Process video
-results = tracker.process_video('input_video.mp4', 'output_video.mp4')
+```bash
+# Process 10-second segment starting at 30s with ByteTrack (recommended)
+python scripts/process_short_segment.py \
+    --input your_video.mp4 \
+    --start 30 \
+    --duration 10 \
+    --optimization balanced \
+    --method bytetrack
 
-# Get tracking data
-player_data = results['tracking_data']
-team_assignments = results['team_data']
+# Fast processing (YOLO only, no SAM2)
+python scripts/process_short_segment.py \
+    --input your_video.mp4 \
+    --start 25 \
+    --duration 5 \
+    --optimization fast \
+    --method bytetrack
+
+# High quality processing (larger models)
+python scripts/process_short_segment.py \
+    --input your_video.mp4 \
+    --start 15 \
+    --duration 15 \
+    --optimization quality \
+    --method bytetrack
 ```
 
-### Real-time Processing
+### 🎯 Full Video Processing
+
+Process entire videos with offline rendering:
+
+```bash
+# Process entire video with ByteTrack (recommended)
+python scripts/process_and_playback.py \
+    --input your_full_video.mp4 \
+    --optimization balanced \
+    --method bytetrack
+
+# Process only (no playback)
+python scripts/process_and_playback.py \
+    --input your_full_video.mp4 \
+    --optimization balanced \
+    --method bytetrack \
+    --no-playback
+
+# Playback existing processed video
+python scripts/process_and_playback.py \
+    --playback-only your_video_tracked_balanced_bytetrack_30fps.mp4
+```
+
+### ⚙️ Optimization Levels
+
+Choose the right balance of speed vs quality:
+
+| Level | Models | Speed | Quality | Use Case |
+|-------|--------|--------|---------|-----------|
+| **fast** | YOLO11s, No SAM2 | ~15-20 FPS | Good | Quick testing, real-time |
+| **balanced** | YOLO11m, SAM2-tiny | ~5-10 FPS | Great | Best balance (recommended) |
+| **quality** | YOLO11l, SAM2-small | ~2-5 FPS | Excellent | Final production, analysis |
+
+### 🔧 Method Comparison
+
+| Method | Pros | Cons | Best For |
+|--------|------|------|-----------|
+| **bytetrack** | ✅ Stable IDs<br>✅ Fast<br>✅ Less flickering | ❌ Motion-based only | Basketball (recommended) |
+| **deepsort** | ✅ Appearance features<br>✅ Re-identification | ❌ Can flicker<br>❌ Slower | General tracking |
+
+### 📊 Processing Times (Estimated)
+
+For a 60-second basketball video:
+
+| Configuration | Processing Time | Output Quality |
+|---------------|----------------|----------------|
+| Fast + ByteTrack | ~3-5 minutes | Good for testing |
+| Balanced + ByteTrack | ~15-25 minutes | **Recommended** |
+| Quality + ByteTrack | ~45-90 minutes | Best for analysis |
+
+### 🎮 Python API Usage
+
 ```python
-import cv2
-from src.pipeline.basketball_tracker import BasketballTracker
+from src.pipeline.basketball_tracker_bytetrack import BasketballTrackerByteTrack
 
-tracker = BasketballTracker()
-cap = cv2.VideoCapture(0)  # Webcam or video file
+# Initialize tracker
+tracker = BasketballTrackerByteTrack(optimization_level="balanced")
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-    
-    # Process frame
-    tracked_frame, data = tracker.process_frame(frame)
-    
-    # Display results
-    cv2.imshow('Basketball Tracking', tracked_frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+# Process single frame
+tracked_frame, players = tracker.process_frame(frame)
+
+# Process video file
+tracker.process_video("input.mp4", "output.mp4")
 ```
 
 ## 📊 Performance Targets
