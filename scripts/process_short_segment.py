@@ -32,7 +32,8 @@ def process_short_segment(
     duration: float = 10,
     optimization_level: str = "balanced",
     target_fps: int = 30,
-    method: str = "deepsort"
+    method: str = "deepsort",
+    mask_only: bool = False
 ):
     """
     Process a short segment of video and save results
@@ -44,6 +45,8 @@ def process_short_segment(
         duration: Duration to process in seconds
         optimization_level: Pipeline optimization level
         target_fps: Target FPS for output video
+        method: Tracking method (deepsort or bytetrack)
+        mask_only: Show only segmentation masks without bounding boxes
     """
     print("🏀 Basketball Short Segment Processing")
     print("=" * 50)
@@ -53,6 +56,7 @@ def process_short_segment(
     print(f"🎯 Optimization: {optimization_level}")
     print(f"🎬 Target FPS: {target_fps}")
     print(f"🔧 Method: {method.upper()}")
+    print(f"🎭 Mask-only mode: {mask_only}")
     print()
     
     # Open input video
@@ -88,7 +92,10 @@ def process_short_segment(
             print("Falling back to DeepSORT...")
             tracker = BasketballTracker(optimization_level=optimization_level)
         else:
-            tracker = BasketballTrackerByteTrack(optimization_level=optimization_level)
+            tracker = BasketballTrackerByteTrack(
+                optimization_level=optimization_level,
+                mask_only_visualization=mask_only
+            )
     else:  # deepsort (default)
         tracker = BasketballTracker(optimization_level=optimization_level)
     print()
@@ -197,6 +204,8 @@ def main():
     parser.add_argument("--method", "-m", default="deepsort",
                        choices=["deepsort", "bytetrack"],
                        help="Tracking method (default: deepsort)")
+    parser.add_argument("--mask-only", action="store_true",
+                       help="Show only segmentation masks without bounding boxes (ByteTrack only)")
     parser.add_argument("--no-playback", action="store_true",
                        help="Skip playback, only process and save")
     
@@ -205,7 +214,8 @@ def main():
     # Generate output path if not provided
     if not args.output:
         input_path = Path(args.input)
-        args.output = str(input_path.parent / f"{input_path.stem}_short_{args.start}s_{args.duration}s_{args.optimization}_{args.method}.mp4")
+        mask_suffix = "_masks" if args.mask_only else ""
+        args.output = str(input_path.parent / f"{input_path.stem}_short_{args.start}s_{args.duration}s_{args.optimization}_{args.method}{mask_suffix}.mp4")
     
     try:
         # Process video segment
@@ -216,7 +226,8 @@ def main():
             args.duration,
             args.optimization,
             args.fps,
-            args.method
+            args.method,
+            args.mask_only
         )
         
         if success and not args.no_playback:

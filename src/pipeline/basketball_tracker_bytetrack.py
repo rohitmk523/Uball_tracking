@@ -28,7 +28,8 @@ class BasketballTrackerByteTrack:
         self,
         yolo_config_path: Optional[str] = None,
         sam2_config_path: Optional[str] = None,
-        optimization_level: str = "balanced"
+        optimization_level: str = "balanced",
+        mask_only_visualization: bool = False
     ):
         """
         Initialize ByteTrack-based basketball tracking pipeline
@@ -37,12 +38,15 @@ class BasketballTrackerByteTrack:
             yolo_config_path: Path to YOLO configuration
             sam2_config_path: Path to SAM2 configuration  
             optimization_level: 'fast', 'balanced', or 'quality'
+            mask_only_visualization: If True, show only segmentation masks without bounding boxes
         """
         self.optimization_level = optimization_level
+        self.mask_only_visualization = mask_only_visualization
         
         print("🏀 Initializing ByteTrack Basketball Tracking Pipeline")
         print("=" * 60)
         print(f"Optimization level: {optimization_level}")
+        print(f"Mask-only visualization: {mask_only_visualization}")
         
         # Configure optimization settings
         self._configure_optimization(optimization_level)
@@ -128,8 +132,10 @@ class BasketballTrackerByteTrack:
         # Initialize YOLO detector
         print("🎯 Initializing YOLO detector...")
         try:
+            # Construct full path to model
+            model_path = f"models/yolo/{self.yolo_model}"
             self.detector = YOLODetector(
-                model_path=self.yolo_model,
+                model_path=model_path,
                 config_path=yolo_config or "config/yolo_config.yaml"
             )
             self.yolo_available = True
@@ -221,7 +227,10 @@ class BasketballTrackerByteTrack:
             
             # Step 5: Visualization
             visualization_start = time.time()
-            vis_frame = self.visualize_tracking(frame, enhanced_tracks)
+            if self.mask_only_visualization:
+                vis_frame = self.visualize_masks_only(frame, enhanced_tracks)
+            else:
+                vis_frame = self.visualize_tracking(frame, enhanced_tracks)
             visualization_time = time.time() - visualization_start
             self.processing_times['visualization'].append(visualization_time)
             
@@ -307,6 +316,66 @@ class BasketballTrackerByteTrack:
             enhanced_tracks.append(enhanced_track)
         
         return enhanced_tracks
+    
+    def visualize_masks_only(self, frame: np.ndarray, tracked_players: List[Dict]) -> np.ndarray:
+        """Visualize only segmentation masks without bounding boxes"""
+        vis_frame = frame.copy()
+        
+        if not tracked_players:
+            self._draw_performance_info(vis_frame)
+            return vis_frame
+        
+        # Color palette for different track IDs
+        color_palette = list(self.team_colors.values())[:-1]  # Exclude 'unknown'
+        
+        # Draw each tracked player - MASKS ONLY
+        for player in tracked_players:
+            track_id = player['track_id']
+            
+            # Get consistent color for track ID
+            color = color_palette[track_id % len(color_palette)]
+            
+            # Draw segmentation mask if available
+            if player.get('has_mask', False) and 'mask' in player:
+                mask = player['mask']
+                if mask is not None and np.sum(mask) > 0:
+                    # Create a more vibrant mask overlay
+                    alpha = 0.6  # Slightly more opaque for better visibility
+                    vis_frame[mask] = (vis_frame[mask] * (1 - alpha) + np.array(color) * alpha).astype(np.uint8)
+                    
+                    # Draw mask contour for better definition
+                    mask_uint8 = mask.astype(np.uint8) * 255
+                    contours, _ = cv2.findContours(mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    cv2.drawContours(vis_frame, contours, -1, color, 3)
+                    
+                    # Optional: Add a small track ID label at the center of the mask
+                    if len(contours) > 0:
+                        # Find the centroid of the largest contour
+                        largest_contour = max(contours, key=cv2.contourArea)
+                        M = cv2.moments(largest_contour)
+                        if M["m00"] != 0:
+                            center_x = int(M["m10"] / M["m00"])
+                            center_y = int(M["m01"] / M["m00"])
+                            
+                            # Draw a small circle with track ID
+                            cv2.circle(vis_frame, (center_x, center_y), 15, color, -1)
+                            cv2.putText(vis_frame, str(track_id), (center_x - 8, center_y + 5), 
+                                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            else:
+                # Fallback: if no mask available, show a minimal indicator
+                bbox = player['bbox']
+                x1, y1, x2, y2 = [int(coord) for coord in bbox]
+                center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+                
+                # Draw a small circle to indicate tracked player without mask
+                cv2.circle(vis_frame, (center_x, center_y), 8, color, -1)
+                cv2.putText(vis_frame, str(track_id), (center_x - 5, center_y + 3), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        
+        # Draw performance info
+        self._draw_performance_info(vis_frame)
+        
+        return vis_frame
     
     def visualize_tracking(self, frame: np.ndarray, tracked_players: List[Dict]) -> np.ndarray:
         """Visualize ByteTrack tracking results"""
