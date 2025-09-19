@@ -15,6 +15,156 @@ import json
 from src.detection.yolo_detector import YOLODetector
 from src.segmentation.sam2_segmenter import SAM2Segmenter
 from src.tracking.bytetrack_tracker import ByteTrackTracker
+from collections import deque
+
+
+class DetectionSmoother:
+    """
+    Smooths detections to reduce noise and improve tracking stability
+    """
+    
+    def __init__(self, history_size: int = 5, confidence_threshold: float = 0.3):
+        """
+        Initialize detection smoother
+        
+        Args:
+            history_size: Number of frames to keep in history for smoothing
+            confidence_threshold: Minimum confidence for detection persistence
+        """
+        self.history_size = history_size
+        self.confidence_threshold = confidence_threshold
+        self.detection_history = deque(maxlen=history_size)
+        self.frame_count = 0
+    
+    def smooth_detections(self, detections: List[Dict]) -> List[Dict]:
+        """
+        Apply smoothing to detections
+        
+        Args:
+            detections: List of raw detections from YOLO
+            
+        Returns:
+            List of smoothed detections
+        """
+        self.frame_count += 1
+        
+        # Store current detections in history
+        self.detection_history.append(detections)
+        
+        # If we don't have enough history, just apply basic filtering
+        if len(self.detection_history) < 3:
+            return self._apply_confidence_smoothing(detections)
+        
+        # Apply full smoothing pipeline
+        smoothed_detections = []
+        
+        for detection in detections:
+            # Step 1: Smooth confidence scores
+            smoothed_confidence = self._smooth_confidence(detection)
+            
+            # Step 2: Check detection persistence
+            if not self._check_detection_persistence(detection):
+                continue  # Skip non-persistent detections
+            
+            # Step 3: Smooth centroid position
+            smoothed_bbox = self._smooth_bbox_position(detection)
+            
+            # Create smoothed detection
+            smoothed_detection = detection.copy()
+            smoothed_detection['confidence'] = smoothed_confidence
+            smoothed_detection['bbox'] = smoothed_bbox
+            smoothed_detection['smoothed'] = True
+            
+            smoothed_detections.append(smoothed_detection)
+        
+        return smoothed_detections
+    
+    def _apply_confidence_smoothing(self, detections: List[Dict]) -> List[Dict]:
+        """Apply basic confidence filtering when history is insufficient"""
+        filtered_detections = []
+        for detection in detections:
+            if detection['confidence'] >= self.confidence_threshold:
+                filtered_detections.append(detection)
+        return filtered_detections
+    
+    def _smooth_confidence(self, detection: Dict) -> float:
+        """Smooth confidence scores over recent frames"""
+        bbox = detection['bbox']
+        confidence_values = []
+        
+        # Look for similar detections in recent frames
+        for frame_detections in list(self.detection_history)[-3:]:  # Last 3 frames
+            for hist_detection in frame_detections:
+                if self._detections_overlap(bbox, hist_detection['bbox']):
+                    confidence_values.append(hist_detection['confidence'])
+        
+        if confidence_values:
+            # Use median of recent confidence values
+            return float(np.median(confidence_values))
+        else:
+            return detection['confidence']
+    
+    def _check_detection_persistence(self, detection: Dict) -> bool:
+        """Check if detection has appeared in multiple recent frames"""
+        if len(self.detection_history) < 2:
+            return detection['confidence'] >= self.confidence_threshold
+        
+        bbox = detection['bbox']
+        matches_in_history = 0
+        
+        # Check last 3 frames for similar detections
+        for frame_detections in list(self.detection_history)[-3:]:
+            for hist_detection in frame_detections:
+                if self._detections_overlap(bbox, hist_detection['bbox']):
+                    matches_in_history += 1
+                    break
+        
+        # Require detection to appear in at least 2 of last 3 frames for new tracks
+        # Or have high confidence for immediate acceptance
+        return matches_in_history >= 2 or detection['confidence'] >= 0.7
+    
+    def _smooth_bbox_position(self, detection: Dict) -> List[float]:
+        """Smooth bounding box position using median filtering"""
+        bbox = detection['bbox']
+        recent_bboxes = []
+        
+        # Collect similar bboxes from recent frames
+        for frame_detections in list(self.detection_history)[-5:]:  # Last 5 frames
+            for hist_detection in frame_detections:
+                if self._detections_overlap(bbox, hist_detection['bbox']):
+                    recent_bboxes.append(hist_detection['bbox'])
+        
+        if len(recent_bboxes) >= 3:
+            # Apply median filtering to bbox coordinates
+            recent_bboxes = np.array(recent_bboxes)
+            smoothed_bbox = np.median(recent_bboxes, axis=0).tolist()
+            return smoothed_bbox
+        else:
+            return bbox
+    
+    def _detections_overlap(self, bbox1: List[float], bbox2: List[float], threshold: float = 0.3) -> bool:
+        """Check if two bounding boxes overlap significantly"""
+        x1_1, y1_1, x2_1, y2_1 = bbox1
+        x1_2, y1_2, x2_2, y2_2 = bbox2
+        
+        # Calculate intersection
+        x1_i = max(x1_1, x1_2)
+        y1_i = max(y1_1, y1_2)
+        x2_i = min(x2_1, x2_2)
+        y2_i = min(y2_1, y2_2)
+        
+        if x2_i <= x1_i or y2_i <= y1_i:
+            return False  # No intersection
+        
+        # Calculate areas
+        intersection_area = (x2_i - x1_i) * (y2_i - y1_i)
+        area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+        area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+        union_area = area1 + area2 - intersection_area
+        
+        # Calculate IoU (Intersection over Union)
+        iou = intersection_area / union_area if union_area > 0 else 0
+        return iou >= threshold
 
 
 class BasketballTrackerByteTrack:
@@ -54,6 +204,12 @@ class BasketballTrackerByteTrack:
         # Initialize components
         self._initialize_components(yolo_config_path, sam2_config_path)
         
+        # Initialize detection smoother
+        self.detection_smoother = DetectionSmoother(
+            history_size=5,
+            confidence_threshold=0.25 if optimization_level == "fast" else 0.3
+        )
+        
         # Performance tracking
         self.frame_count = 0
         self.processing_times = {
@@ -92,10 +248,10 @@ class BasketballTrackerByteTrack:
         """Configure pipeline based on optimization level"""
         if level == "fast":
             self.yolo_model = "yolo11s.pt"  # Small model for better detection
-            self.sam2_model = "sam2_hiera_t.yaml"
+            self.sam2_model = "sam2_hiera_t.yaml"  # Tiny for speed
             self.sam2_checkpoint = "sam2_hiera_tiny.pt"
             self.process_every_n_frames = 1
-            self.enable_segmentation = False  # YOLO-only mode
+            self.enable_segmentation = True  # Enable segmentation with tiny model
             self.enable_advanced_tracking = True
             # ByteTrack settings for speed
             self.track_activation_threshold = 0.2
@@ -104,8 +260,8 @@ class BasketballTrackerByteTrack:
         
         elif level == "balanced":
             self.yolo_model = "yolo11m.pt"
-            self.sam2_model = "sam2_hiera_t.yaml"
-            self.sam2_checkpoint = "sam2_hiera_tiny.pt"
+            self.sam2_model = "sam2_hiera_b+.yaml"  # Base Plus for balanced
+            self.sam2_checkpoint = "sam2_hiera_base_plus.pt"
             self.process_every_n_frames = 1
             self.enable_segmentation = True
             self.enable_advanced_tracking = True
@@ -116,7 +272,7 @@ class BasketballTrackerByteTrack:
         
         elif level == "quality":  # quality
             self.yolo_model = "yolo11l.pt"
-            self.sam2_model = "sam2_hiera_l.yaml"
+            self.sam2_model = "sam2_hiera_l.yaml"  # Large for quality
             self.sam2_checkpoint = "sam2_hiera_large.pt"
             self.process_every_n_frames = 1
             self.enable_segmentation = True
@@ -195,7 +351,15 @@ class BasketballTrackerByteTrack:
         try:
             # Step 1: YOLO Detection
             detection_start = time.time()
-            detections = self.detector.detect_players(frame)
+            raw_detections = self.detector.detect_players(frame)
+            
+            # Step 1.5: Apply detection smoothing
+            detections = self.detection_smoother.smooth_detections(raw_detections)
+            
+            # Store for debug display
+            self._last_raw_detections = raw_detections
+            self._last_smoothed_detections = detections
+            
             detection_time = time.time() - detection_start
             self.processing_times['detection'].append(detection_time)
             
@@ -444,16 +608,27 @@ class BasketballTrackerByteTrack:
         avg_time = np.mean(recent_times)
         fps = 1.0 / avg_time if avg_time > 0 else 0
         
+        # Calculate smoothing stats
+        total_detections = len(getattr(self, '_last_raw_detections', []))
+        smoothed_detections = len(getattr(self, '_last_smoothed_detections', []))
+        
         # Performance text
         perf_text = f"FPS: {fps:.1f} | ByteTrack | Frame: {self.frame_count}"
+        smooth_text = f"Detections: {total_detections}→{smoothed_detections} (smoothed)"
         
-        # Draw background
-        text_size = cv2.getTextSize(perf_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-        cv2.rectangle(frame, (10, 10), (text_size[0] + 20, text_size[1] + 20), (0, 0, 0), -1)
+        # Draw background for both texts
+        text_size1 = cv2.getTextSize(perf_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+        text_size2 = cv2.getTextSize(smooth_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        max_width = max(text_size1[0], text_size2[0])
+        total_height = text_size1[1] + text_size2[1] + 25
         
-        # Draw text
-        cv2.putText(frame, perf_text, (15, text_size[1] + 15), 
+        cv2.rectangle(frame, (10, 10), (max_width + 20, total_height), (0, 0, 0), -1)
+        
+        # Draw texts
+        cv2.putText(frame, perf_text, (15, text_size1[1] + 15), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(frame, smooth_text, (15, text_size1[1] + text_size2[1] + 20), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
     
     def _update_statistics(self, tracked_players: List[Dict]):
         """Update session statistics"""

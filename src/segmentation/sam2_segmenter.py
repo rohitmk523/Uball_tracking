@@ -199,7 +199,7 @@ class SAM2Segmenter:
             for detection in detections:
                 # Use bounding box as prompt for SAM2
                 bbox = detection['bbox']
-                x1, y1, x2, y2 = bbox
+                x1, y1, x2, y2 = [float(coord) for coord in bbox]  # Ensure float for SAM2
                 
                 # Convert to SAM2 box format
                 input_box = np.array([x1, y1, x2, y2])
@@ -245,7 +245,7 @@ class SAM2Segmenter:
         
         for detection in detections:
             bbox = detection['bbox']
-            x1, y1, x2, y2 = bbox
+            x1, y1, x2, y2 = [int(coord) for coord in bbox]  # Ensure integers
             
             # Create a rectangular mask
             mask = np.zeros(image.shape[:2], dtype=bool)
@@ -319,7 +319,7 @@ class SAM2Segmenter:
     def _apply_torso_focus(self, mask: np.ndarray, detection: Dict) -> np.ndarray:
         """Focus mask on player torso region (basketball-specific)"""
         bbox = detection['bbox']
-        x1, y1, x2, y2 = bbox
+        x1, y1, x2, y2 = [int(coord) for coord in bbox]  # Ensure integers
         
         # Create a mask that emphasizes the torso region
         height = y2 - y1
@@ -395,7 +395,7 @@ class SAM2Segmenter:
             
             # Draw bounding box
             if show_boxes:
-                x1, y1, x2, y2 = bbox
+                x1, y1, x2, y2 = [int(coord) for coord in bbox]  # Ensure integers
                 cv2.rectangle(vis_image, (x1, y1), (x2, y2), color, 2)
                 
                 # Draw label
@@ -457,7 +457,7 @@ class SAM2Segmenter:
             if 'mask' in detection:
                 mask = detection['mask']
                 bbox = detection['bbox']
-                x1, y1, x2, y2 = bbox
+                x1, y1, x2, y2 = [float(coord) for coord in bbox]  # Ensure float for calculations
                 
                 bbox_area = (x2 - x1) * (y2 - y1)
                 mask_area = np.sum(mask)

@@ -90,12 +90,12 @@ class YOLOSAMPipeline:
             self.process_every_n_frames = 2  # Skip frames for speed
         elif level == "balanced":
             self.yolo_model_path = "yolo11n.pt"  # Nano
-            self.sam2_model_cfg = "sam2_hiera_t.yaml"  # Tiny - good balance
-            self.sam2_checkpoint = "sam2_hiera_tiny.pt"
+            self.sam2_model_cfg = "sam2_hiera_b+.yaml"  # Base Plus - balanced
+            self.sam2_checkpoint = "sam2_hiera_base_plus.pt"
             self.process_every_n_frames = 1  # Process all frames
         else:  # quality
             self.yolo_model_path = "yolo11s.pt"  # Small - better accuracy
-            self.sam2_model_cfg = "sam2_hiera_l.yaml"  # Large
+            self.sam2_model_cfg = "sam2_hiera_l.yaml"  # Large - highest quality
             self.sam2_checkpoint = "sam2_hiera_large.pt"
             self.process_every_n_frames = 1
     

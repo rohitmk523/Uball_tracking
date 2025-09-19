@@ -249,7 +249,7 @@ class PlayerAppearanceExtractor:
         Returns:
             Processed crop or None if invalid
         """
-        x1, y1, x2, y2 = bbox
+        x1, y1, x2, y2 = [int(coord) for coord in bbox]  # Ensure integers
         
         # Validate bbox
         if x2 <= x1 or y2 <= y1:
@@ -400,7 +400,7 @@ class SimpleFeatureExtractor:
     
     def _extract_crop(self, image: np.ndarray, bbox: List[int], mask: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
         """Extract crop from image"""
-        x1, y1, x2, y2 = bbox
+        x1, y1, x2, y2 = [int(coord) for coord in bbox]  # Ensure integers
         
         if x2 <= x1 or y2 <= y1:
             return None

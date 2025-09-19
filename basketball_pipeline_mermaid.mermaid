@@ -1,0 +1,44 @@
+flowchart TD
+    %% Input
+    A[📹 Video Frame Input<br/>BGR Format] --> B{🎯 YOLO Detection}
+    
+    %% YOLO Detection Phase
+    B --> C[📊 Raw Detections<br/>- Bounding boxes<br/>- Confidence scores<br/>- Player areas]
+    
+    %% Detection Smoothing Phase
+    C --> D[🔄 Detection Smoother<br/>History-based filtering]
+    D --> E{📈 Smoothing Process}
+    E --> F[✅ Smoothed Detections<br/>- Confidence smoothing<br/>- Persistence check<br/>- Position smoothing]
+    
+    %% Segmentation Phase
+    F --> G{🖼️ SAM2 Segmentation<br/>Available?}
+    G -->|Yes| H[🎭 SAM2 Segmenter<br/>- Pixel-perfect masks<br/>- Stability scores<br/>- Region filtering]
+    G -->|No| I[📦 Fallback Masks<br/>Rectangular masks]
+    
+    H --> J[✨ Segmented Detections<br/>With pixel masks]
+    I --> J
+    
+    %% Tracking Phase
+    J --> K[🏃 ByteTrack Tracker<br/>Motion-based tracking]
+    K --> L{🔄 Track Update Process}
+    L --> M[👥 Tracked Players<br/>With unique IDs]
+    
+    %% Enhancement Phase
+    M --> N[🔧 Track Enhancement<br/>Match with segmentation]
+    N --> O[⭐ Enhanced Tracks<br/>- Track IDs<br/>- Masks<br/>- Confidence scores]
+    
+    %% Visualization Phase
+    O --> P{🎨 Visualization Mode}
+    P -->|Mask Only| Q[👻 Mask-only Visualization<br/>- Colored masks<br/>- Track ID labels<br/>- Contours]
+    P -->|Full| R[🎯 Full Visualization<br/>- Bounding boxes<br/>- Masks overlay<br/>- Labels & confidence]
+    
+    Q --> S[📺 Final Output Frame]
+    R --> S
+    
+    %% Statistics and Performance
+    S --> T[📊 Statistics Update<br/>- Frame count<br/>- Detection counts<br/>- Performance metrics]
+    
+    %% Styling
+    style A fill:#e1f5fe
+    style S fill:#e8f5e8
+    style T fill:#fff3e0
